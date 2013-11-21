@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.marblegame;
+package com.example.android.accelerometerplay;
 
 import android.app.Activity;
 import android.content.Context;
