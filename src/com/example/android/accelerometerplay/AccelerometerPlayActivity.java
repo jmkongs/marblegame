@@ -111,7 +111,7 @@ public class AccelerometerPlayActivity extends Activity {
 
     class SimulationView extends View implements SensorEventListener {
         // diameter of the balls in meters
-        private static final float sBallDiameter = 0.004f;
+        private static final float sBallDiameter = 0.008f;
         private static final float sBallDiameter2 = sBallDiameter * sBallDiameter;
 
         // friction of the virtual table and air
@@ -160,7 +160,7 @@ public class AccelerometerPlayActivity extends Activity {
 
             public void computePhysics(float sx, float sy, float dT, float dTC) {
                 // Force of gravity applied to our virtual object
-                final float m = 1000.0f; // mass of our virtual object
+                final float m = 3000.0f; // mass of our virtual object
                 final float gx = -sx * m;
                 final float gy = -sy * m;
 
@@ -223,7 +223,7 @@ public class AccelerometerPlayActivity extends Activity {
          * A particle system is just a collection of particles
          */
         class ParticleSystem {
-            static final int NUM_PARTICLES = 15;
+            static final int NUM_PARTICLES = 1;
             private Particle mBalls[] = new Particle[NUM_PARTICLES];
 
             ParticleSystem() {
@@ -357,11 +357,14 @@ public class AccelerometerPlayActivity extends Activity {
             final int dstWidth = (int) (sBallDiameter * mMetersToPixelsX + 0.5f);
             final int dstHeight = (int) (sBallDiameter * mMetersToPixelsY + 0.5f);
             mBitmap = Bitmap.createScaledBitmap(ball, dstWidth, dstHeight, true);
-
+            
             Options opts = new Options();
             opts.inDither = true;
             opts.inPreferredConfig = Bitmap.Config.RGB_565;
             mWood = BitmapFactory.decodeResource(getResources(), R.drawable.wood, opts);
+            final int woodDstWidth = (int) (metrics.widthPixels);
+            final int woodDstHeight = (int) (metrics.heightPixels);
+            mWood = Bitmap.createScaledBitmap(mWood, woodDstWidth, woodDstHeight, true);
         }
 
         @Override
