@@ -34,6 +34,9 @@ import android.view.Display;
 import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MenuInflater;
 
 /**
  * This is an example of using the accelerometer to integrate the device's
@@ -108,7 +111,31 @@ public class AccelerometerPlayActivity extends Activity {
         // and release our wake-lock
         mWakeLock.release();
     }
-
+    
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+    	// Inflate the menu items for use in the action bar
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.accelerometer_play, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle presses on the action bar items
+        switch (item.getItemId()) {
+            case R.id.action_reload:
+            	finish();
+            	startActivity(getIntent());
+                return true;
+            case R.id.action_exit:
+                finish();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    
+    }
     class SimulationView extends View implements SensorEventListener {
         // diameter of the balls in meters
         private static final float sBallDiameter = 0.008f;
@@ -325,7 +352,9 @@ public class AccelerometerPlayActivity extends Activity {
                 return mBalls[i].mPosY;
             }
         }
-
+        
+        
+        
         public void startSimulation() {
             /*
              * It is not necessary to get accelerometer events at a very high
@@ -416,7 +445,8 @@ public class AccelerometerPlayActivity extends Activity {
         @Override
         protected void onDraw(Canvas canvas) {
 
-            /*
+        	
+        	 /*
              * draw the background
              */
 
