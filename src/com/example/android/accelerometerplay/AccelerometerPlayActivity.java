@@ -23,8 +23,11 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.Paint.Style;
 import android.graphics.BitmapFactory.Options;
+import android.graphics.RectF;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -33,6 +36,7 @@ import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
 import android.view.View;
@@ -44,6 +48,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Random;
+
+import com.example.android.accelerometerplay.AccelerometerPlayActivity.SimulationView.Particle;
 /**
  * This is an example of using the accelerometer to integrate the device's
  * acceleration to a position using the Verlet method. This is illustrated with
@@ -144,7 +150,7 @@ public class AccelerometerPlayActivity extends Activity {
     }
     class SimulationView extends View implements SensorEventListener {
         // diameter of the balls in meters
-        private static final float sBallDiameter = 0.008f;
+        private static final float sBallDiameter = 0.002f;
         private static final float sBallDiameter2 = sBallDiameter * sBallDiameter;
 
         // friction of the virtual table and air
@@ -169,14 +175,16 @@ public class AccelerometerPlayActivity extends Activity {
         private float mHorizontalBound;
         private float mVerticalBound;
         private MyMaze mMaze;
-        private final ParticleSystem mParticleSystem = new ParticleSystem();
+        private ParticleSystem mParticleSystem;
 
         /*
          * Each of our particle holds its previous and current position, its
          * acceleration. for added realism each particle has its own friction
          * coefficient.
          */
-        class Particle {
+        public class Particle {
+        	private float mPosXset;
+        	private float mPosYset;
             private float mPosX;
             private float mPosY;
             private float mAccelX;
@@ -184,17 +192,64 @@ public class AccelerometerPlayActivity extends Activity {
             private float mLastPosX;
             private float mLastPosY;
             private float mOneMinusFriction;
+            private float mMetersPerPixelX;
+            private float mMetersPerPixelY;
+            private float mOriginX;
+            private float mOriginY;
 
-            Particle() {
+            Particle( float metersPerPixelX, float metersPerPixelY, float originX, float originY ) {
                 // make each particle a bit different by randomizing its
                 // coefficient of friction
                 final float r = ((float) Math.random() - 0.5f) * 0.2f;
                 mOneMinusFriction = 1.0f - sFriction + r;
+                mMetersPerPixelX = metersPerPixelX;
+                mMetersPerPixelY = metersPerPixelY;
+                mOriginX = originX;
+                mOriginY = originY;
+            }
+            
+            public void setOrigin( float x, float y )
+            {
+            	mOriginX = x;
+            	mOriginY = y;
+            }
+            
+            public void clearAccel()
+            {
+            	mAccelX = 0;
+            	mAccelY = 0;
             }
 
+            public void setPosPixel( float x, float y )
+            {
+            	mPosXset = mPosX = (x - mXOrigin ) / mMetersPerPixelX;
+            	mPosYset = mPosY = ( mYOrigin - y ) / mMetersPerPixelY;
+            	
+            }
+            
+            public float getPosXPixel ()
+            {
+            	return mOriginX + ( mPosX * mMetersPerPixelX );
+            }
+            
+            public float getPosYPixel()
+            {
+            	return mOriginY - ( mPosY * mMetersPerPixelY );
+            }
+            
+            public float getLastPosXPixel ()
+            {
+            	return mOriginX + ( mLastPosX * mMetersPerPixelX );
+            }
+            
+            public float getLastPosYPixel()
+            {
+            	return mOriginY - ( mLastPosY * mMetersPerPixelY );
+            }
+            
             public void computePhysics(float sx, float sy, float dT, float dTC) {
                 // Force of gravity applied to our virtual object
-                final float m = 3000.0f; // mass of our virtual object
+                final float m = 500.0f; // mass of our virtual object
                 final float gx = -sx * m;
                 final float gy = -sy * m;
 
@@ -204,8 +259,32 @@ public class AccelerometerPlayActivity extends Activity {
                  * but it would hide the concepts from this sample code.
                  */
                 final float invm = 1.0f / m;
-                final float ax = gx * invm;
-                final float ay = gy * invm;
+                float ax = gx * invm;
+                float ay = gy * invm;
+
+
+                
+                if( ax > 0.3f )
+                {
+                	ax = 0.3f;
+                }
+                else if ( ax < -0.3f )
+                {
+                	ax = -0.3f;
+                }
+                
+                if( ay > 0.3f )
+                {
+                	ay = 0.3f;
+                }
+                else if( ay < -0.3f )
+                {
+                	ay = -0.3f;
+                }
+                
+                String msg = String.valueOf(ax) + ", " + String.valueOf(ay);
+                Log.d("MarbleGame", msg);
+                
 
                 /*
                  * Time-corrected Verlet integration The position Verlet
@@ -217,14 +296,15 @@ public class AccelerometerPlayActivity extends Activity {
                  * (1-f) * (x(t) - x(t-Æt)) * (Æt/Æt_prev) + a(t)Ætö2
                  */
                 final float dTdT = dT * dT;
-                final float x = mPosX + mOneMinusFriction * dTC * (mPosX - mLastPosX) + mAccelX
+                final float x = mPosX + mOneMinusFriction * dTC * (mPosX - mPosXset) + mAccelX
                         * dTdT;
-                final float y = mPosY + mOneMinusFriction * dTC * (mPosY - mLastPosY) + mAccelY
+                final float y = mPosY + mOneMinusFriction * dTC * (mPosY - mPosYset) + mAccelY
                         * dTdT;
-                mLastPosX = mPosX;
-                mLastPosY = mPosY;
+                mPosXset = mLastPosX = mPosX;
+                mPosYset = mLastPosY = mPosY;
                 mPosX = x;
                 mPosY = y;
+                
                 mAccelX = ax;
                 mAccelY = ay;
             }
@@ -260,15 +340,23 @@ public class AccelerometerPlayActivity extends Activity {
             static final int NUM_PARTICLES = 1;
             private Particle mBalls[] = new Particle[NUM_PARTICLES];
 
-            ParticleSystem() {
+            ParticleSystem(float metersPerPixelX, float metersPerPixelY, float originX, float originY) {
                 /*
                  * Initially our particles have no speed or acceleration
                  */
                 for (int i = 0; i < mBalls.length; i++) {
-                    mBalls[i] = new Particle();
+                    mBalls[i] = new Particle(metersPerPixelX, metersPerPixelY, originX, originY);
                 }
             }
 
+            
+            public void setOrigin( float x, float y )
+            {
+                for (int i = 0; i < mBalls.length; i++) {
+                    mBalls[i].setOrigin( x, y );
+                }
+            }
+            
             /*
              * Update the position of each particle in the system using the
              * Verlet integrator.
@@ -358,6 +446,25 @@ public class AccelerometerPlayActivity extends Activity {
             public float getPosY(int i) {
                 return mBalls[i].mPosY;
             }
+            
+            public void checkForWallCollision(MyMaze maze, Canvas canvas)
+            {
+            	float x, y, r;
+                for (int i = 0; i < mBalls.length; i++)
+                {
+                    Particle ball = mBalls[i];
+                    r = sBallDiameter * mMetersToPixelsX / 2f;
+                    x = mXOrigin + ( ball.mLastPosX * mMetersToPixelsX ) + r;
+                    y = mYOrigin - ( ball.mLastPosY * mMetersToPixelsY ) + r;
+                    maze.checkWalls( ball,  r, canvas);
+                    Paint paint = new Paint();
+                    //paint.setColor( Color.RED );
+                    //canvas.drawRect( new RectF(bounds[0], bounds[1], bounds[2], bounds[3]), paint);
+                    paint.setColor( Color.BLUE );
+   
+                    canvas.drawCircle( x, y, r, paint );
+                }
+            }
         }
         
         
@@ -387,7 +494,7 @@ public class AccelerometerPlayActivity extends Activity {
             mYDpi = metrics.ydpi;
             mMetersToPixelsX = mXDpi / 0.0254f;
             mMetersToPixelsY = mYDpi / 0.0254f;
-
+            mParticleSystem = new ParticleSystem(mMetersToPixelsX, mMetersToPixelsY, 0, 0);
             // rescale the ball so it's about 0.5 cm on screen
             Bitmap ball = BitmapFactory.decodeResource(getResources(), R.drawable.ball);
             final int dstWidth = (int) (sBallDiameter * mMetersToPixelsX + 0.5f);
@@ -401,7 +508,8 @@ public class AccelerometerPlayActivity extends Activity {
             final int woodDstWidth = (int) (metrics.widthPixels);
             final int woodDstHeight = (int) (metrics.heightPixels);
             mWood = Bitmap.createScaledBitmap(mWood, woodDstWidth, woodDstHeight, true);
-           //mMaze.solve();
+            mMaze = new MyMaze( 10, metrics );
+            //mMaze.solve();
         }
 
         @Override
@@ -410,6 +518,7 @@ public class AccelerometerPlayActivity extends Activity {
             // the bitmap
             mXOrigin = (w - mBitmap.getWidth()) * 0.5f;
             mYOrigin = (h - mBitmap.getHeight()) * 0.5f;
+            mParticleSystem.setOrigin(mXOrigin, mYOrigin);
             mHorizontalBound = ((w / mMetersToPixelsX - sBallDiameter) * 0.5f);
             mVerticalBound = ((h / mMetersToPixelsY - sBallDiameter) * 0.5f);
         }
@@ -453,7 +562,6 @@ public class AccelerometerPlayActivity extends Activity {
         @Override
         protected void onDraw(Canvas canvas) {
 
-        	
         	 /*
              * draw the background
              */
@@ -467,18 +575,20 @@ public class AccelerometerPlayActivity extends Activity {
 
             final ParticleSystem particleSystem = mParticleSystem;
             final long now = mSensorTimeStamp + (System.nanoTime() - mCpuTimeStamp);
-            final float sx = mSensorX;
-            final float sy = mSensorY;
+            final float sx = mSensorX / 10.0f;
+            final float sy = mSensorY / 10.0f;
 
             particleSystem.update(sx, sy, now);
 
+            particleSystem.checkForWallCollision(mMaze, canvas);
             final float xc = mXOrigin;
             final float yc = mYOrigin;
             final float xs = mMetersToPixelsX;
             final float ys = mMetersToPixelsY;
             final Bitmap bitmap = mBitmap;
             final int count = particleSystem.getParticleCount();
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < count; i++)
+            {
                 /*
                  * We transform the canvas so that the coordinate system matches
                  * the sensors coordinate system with the origin in the center
@@ -490,8 +600,7 @@ public class AccelerometerPlayActivity extends Activity {
                 canvas.drawBitmap(bitmap, x, y, null);
             }
             
-            //mMaze.draw(canvas);
-
+            mMaze.draw(canvas);
             // and make sure to redraw asap
             invalidate();
         }
@@ -501,23 +610,22 @@ public class AccelerometerPlayActivity extends Activity {
         }
     }
 
-
-    class MyMaze { 
+    class MyMaze {
+      private float pixelCellSize;
       private int dimensionX, dimensionY; // dimension of maze
       private int gridDimensionX, gridDimensionY; // dimension of output grid
       private char[][] grid; // output grid
       private char[][] gridDraw; // output grid draw
       private Cell[][] cells; // 2d array of Cells
       private Random random = new Random(); // The random object
+      private ArrayList<RectF> walls = new ArrayList<RectF>();
       
-      private float pixelX, pixelY;
       
       // initialize with x and y the same
-      public MyMaze(int aDimension, float mPixelsPerMeterX, float mPixelsPerMeterY) {
+      public MyMaze(int aDimension, DisplayMetrics metrics ) {
           // Initialize
           this(aDimension, aDimension);
-    	  pixelX = mPixelsPerMeterX;
-    	  pixelY = mPixelsPerMeterY;
+          pixelCellSize = (float)metrics.widthPixels / (float)( aDimension * 4 + 1);
       }
       // constructor
       public MyMaze(int xDimension, int yDimension) {
@@ -525,7 +633,7 @@ public class AccelerometerPlayActivity extends Activity {
           dimensionY = yDimension;
           gridDraw = new char[xDimension][yDimension];
           gridDimensionX = xDimension * 4 + 1;
-          gridDimensionY = yDimension * 2 + 1;
+          gridDimensionY = yDimension * 4 + 1;
           grid = new char[gridDimensionX][gridDimensionY];
           init();
           generateMaze();
@@ -614,6 +722,58 @@ public class AccelerometerPlayActivity extends Activity {
       private void generateMaze(int x, int y) {
           generateMaze(getCell(x, y)); // generate from Cell
       }
+      
+      private void checkWalls( Particle ball, float r, Canvas canvas )
+      {
+    	  float x, y, lastX, lastY;
+    	  x = ball.getPosXPixel();
+    	  y = ball.getPosYPixel();
+    	  lastX = ball.getLastPosXPixel();
+    	  lastY = ball.getLastPosYPixel();
+    	      	  
+    	  RectF obj = new RectF(x, y, x + 2 * r, y + 2 * r );
+    	  for( int i = 0; i < walls.size(); i++ )
+    	  {
+    		  RectF wall = walls.get(i); 		  
+    		  
+    		  if( obj.intersect(wall) )
+    		  {
+    			  Paint paint = new Paint();
+    			  paint.setColor(Color.MAGENTA);
+    			  canvas.drawRect( obj, paint );
+    			  
+    				 if( wall.height() > wall.width()  )
+    				  {
+    					 // left or right
+    					  if( obj.centerX() > wall.centerX() )
+    					  {
+    						  x += obj.width();
+    					  }
+    					  else
+    					  {
+    						  x -= obj.width();
+    					  }
+    				  }
+    				  else
+    				  {
+    					  if( obj.centerY() > wall.centerY() )
+    					  {
+    						  y += obj.height();
+    					  }
+    					  else
+    					  {
+    						  y -= obj.height();
+    					  }
+    				  }
+    				 
+    				 ball.setPosPixel(x, y);
+    				 //ball.clearAccel();
+    				  
+    			  }
+    			  
+    		  }
+      }
+      
       private void generateMaze(Cell startAt) {
           // don't generate from cell not there
           if (startAt == null) return;
@@ -734,13 +894,15 @@ public class AccelerometerPlayActivity extends Activity {
                   Math.abs(current.y - current.x);
       }
 
-      public void updateGridDraw() {
+      public void updateGridDraw()
+      {
     	  char backChar = ' ', wallChar = 'X', cellChar = ' ', pathChar = '*';
           
     	  // fill background
-          for (int x = 0; x < dimensionX; x ++) {
-              for (int y = 0; y < dimensionY; y ++) {
-                  
+          for (int x = 0; x < dimensionX; x ++)
+          {
+              for (int y = 0; y < dimensionY; y ++)
+              {
                   if( cells[x][y].wall )
                   {
                 	  gridDraw[x][y] = wallChar;
@@ -760,7 +922,7 @@ public class AccelerometerPlayActivity extends Activity {
       }
       
       // draw the maze
-      public void updateGrid() {
+      public void updateGrid(Canvas canvas) {
           char backChar = ' ', wallChar = '+', cellChar = ' ', pathChar = '*';
           // fill background
           for (int x = 0; x < gridDimensionX; x ++) {
@@ -771,71 +933,213 @@ public class AccelerometerPlayActivity extends Activity {
           // build walls
           for (int x = 0; x < gridDimensionX; x ++) {
               for (int y = 0; y < gridDimensionY; y ++) {
-                  if (x % 4 == 0 || y % 2 == 0)
+                  if (x % 4 == 0 || y % 4 == 0)
                       grid[x][y] = wallChar;
               }
           }
+          
           // make meaningful representation
-          for (int x = 0; x < dimensionX; x++) {
-              for (int y = 0; y < dimensionY; y++) {
+          for (int x = 0; x < dimensionX; x++)
+          {
+              for (int y = 0; y < dimensionY; y++)
+              {
                   Cell current = getCell(x, y);
-                  int gridX = x * 4 + 2, gridY = y * 2 + 1;
+                  int gridX = x * 4 + 2, gridY = y * 4 + 2;
                   if (current.inPath) {
                       grid[gridX][gridY] = pathChar;
                       if (current.isCellBelowNeighbor())
-                          if (getCell(x, y + 1).inPath) {
-                              grid[gridX][gridY + 1] = pathChar;
-                              grid[gridX + 1][gridY + 1] = backChar;
-                              grid[gridX - 1][gridY + 1] = backChar;
-                          } else {
-                              grid[gridX][gridY + 1] = cellChar;
-                              grid[gridX + 1][gridY + 1] = backChar;
-                              grid[gridX - 1][gridY + 1] = backChar;
+                          if (getCell(x, y + 1).inPath)
+                          {
+                        	  grid[gridX - 1][gridY + 1] = backChar;
+                        	  grid[gridX][gridY + 1] = pathChar;
+                        	  grid[gridX + 1][gridY + 1] = backChar;
+                        	  
+                        	  grid[gridX - 1][gridY + 2] = backChar;
+                        	  grid[gridX][gridY + 2] = pathChar;
+                        	  grid[gridX + 1][gridY + 2] = backChar;
+                        	  
+                        	  grid[gridX - 1][gridY + 3] = backChar;
+                        	  grid[gridX][gridY + 3] = pathChar;
+                        	  grid[gridX + 1][gridY + 3] = backChar;                   
+                          }
+                          else
+                          {
+                        	  grid[gridX - 1][gridY + 1] = backChar;
+                        	  grid[gridX][gridY + 1] = cellChar;
+                        	  grid[gridX + 1][gridY + 1] = backChar;
+                        	  
+                        	  grid[gridX - 1][gridY + 2] = backChar;
+                        	  grid[gridX][gridY + 2] = cellChar;
+                        	  grid[gridX + 1][gridY + 2] = backChar;
+                        	  
+                        	  grid[gridX - 1][gridY + 3] = backChar;
+                        	  grid[gridX][gridY + 3] = cellChar;
+                        	  grid[gridX + 1][gridY + 3] = backChar;  
                           }
                       if (current.isCellRightNeighbor())
-                          if (getCell(x + 1, y).inPath) {
-                              grid[gridX + 2][gridY] = pathChar;
-                              grid[gridX + 1][gridY] = pathChar;
-                              grid[gridX + 3][gridY] = pathChar;
-                          } else {
-                              grid[gridX + 2][gridY] = cellChar;
-                              grid[gridX + 1][gridY] = cellChar;
-                              grid[gridX + 3][gridY] = cellChar;
+                          if (getCell(x + 1, y).inPath)
+                          {
+                        	  grid[gridX + 1][gridY - 1] = backChar;
+                        	  grid[gridX + 1][gridY]     = pathChar;
+                              grid[gridX + 1][gridY + 1] = backChar;
+                        	  
+                        	  grid[gridX + 2][gridY - 1] = backChar;
+                        	  grid[gridX + 2][gridY]     = pathChar;
+                              grid[gridX + 2][gridY + 1] = backChar;
+                              
+                        	  grid[gridX + 3][gridY - 1] = backChar;
+                        	  grid[gridX + 3][gridY]     = pathChar;
+                              grid[gridX + 3][gridY + 1] = backChar;
+                          } else
+                          {
+                        	  grid[gridX + 1][gridY - 1] = backChar;
+                        	  grid[gridX + 1][gridY]     = cellChar;
+                              grid[gridX + 1][gridY + 1] = backChar;
+                        	  
+                        	  grid[gridX + 2][gridY - 1] = backChar;
+                        	  grid[gridX + 2][gridY]     = cellChar;
+                              grid[gridX + 2][gridY + 1] = backChar;
+                              
+                        	  grid[gridX + 3][gridY - 1] = backChar;
+                        	  grid[gridX + 3][gridY]     = cellChar;
+                              grid[gridX + 3][gridY + 1] = backChar;
                           }
-                  } else {
+                  }
+                  else
+                  {
                       grid[gridX][gridY] = cellChar;
-                      if (current.isCellBelowNeighbor()) {
+                      if (current.isCellBelowNeighbor())
+                      {
+                          grid[gridX - 1][gridY + 1] = backChar;
                           grid[gridX][gridY + 1] = cellChar;
                           grid[gridX + 1][gridY + 1] = backChar;
-                          grid[gridX - 1][gridY + 1] = backChar;
+
+                          grid[gridX - 1][gridY + 2] = backChar;
+                          grid[gridX][gridY + 2] = cellChar;
+                          grid[gridX + 1][gridY + 2] = backChar;
+
+                          grid[gridX - 1][gridY + 3] = backChar;
+                          grid[gridX][gridY + 3] = cellChar;
+                          grid[gridX + 1][gridY + 3] = backChar;
+
                       }
-                      if (current.isCellRightNeighbor()) {
-                          grid[gridX + 2][gridY] = cellChar;
+                      if (current.isCellRightNeighbor())
+                      {
+                          grid[gridX + 1][gridY - 1] = backChar;
                           grid[gridX + 1][gridY] = cellChar;
+                          grid[gridX + 1][gridY + 1] = backChar;
+                          
+                          grid[gridX + 2][gridY - 1] = backChar;
+                          grid[gridX + 2][gridY] = cellChar;
+                          grid[gridX + 2][gridY + 1] = backChar;
+                          
+                          grid[gridX + 3][gridY - 1] = backChar;
                           grid[gridX + 3][gridY] = cellChar;
+                          grid[gridX + 3][gridY + 1] = backChar;
                       }
                   }
               }
+          }
+          
+          // Make collidable walls
+          boolean wallUsed[][][] = new boolean[gridDimensionX][gridDimensionY][2];
+          
+          for( int i= 0; i < gridDimensionY; i++ )
+          {
+        	  for( int j= 0; j < gridDimensionX; j++ )
+        	  {
+        		  wallUsed[j][i][0] = false;
+        		  wallUsed[j][i][1] = false;
+        	  }
+          }
+          
+          walls.clear();
+          // for each row..
+          for( int i = 0; i < gridDimensionY; i++ )
+          {
+        	  for( int j = 0; j < gridDimensionX; j++ )
+        	  {
+        		  if( j < gridDimensionX - 1 && !wallUsed[j][i][0] && grid[j][i] == '+' && grid[j + 1][i] == '+' && !wallUsed[j+1][i][0] )
+        		  {
+        			  // horizontal wall
+        			  wallUsed[j][i][0]   = true;
+        			  wallUsed[j+1][i][0] = true;
+        			  int k;
+        			  for( k = j + 2; k < gridDimensionX && grid[k][i] == '+' && !wallUsed[k][i][0]; k++ )
+        			  {
+        				  wallUsed[k][i][0] = true;
+        			  }
+        			  
+        		      RectF wall = new RectF();
+        		      wall.left = ( (float)j + 0.5f ) * pixelCellSize;
+        		      wall.top = (float)i * pixelCellSize;
+        		      wall.bottom = wall.top + pixelCellSize;
+        		      wall.right = ( (float)k - 0.5f ) * pixelCellSize;
+        		      walls.add(wall);
+        		  } 
+        		  else if ( i < gridDimensionY - 1 && !wallUsed[j][i][1] && grid[j][i] == '+' && grid[j][i+1] == '+' && !wallUsed[j][i+1][1] )
+        		  {
+        			  // vertical wall
+        			  wallUsed[j][i][1]   = true;
+        			  wallUsed[j][i+1][1] = true;
+        			  int k;
+        			  for( k = i + 2; k < gridDimensionY && grid[j][k] == '+' && !wallUsed[j][k][1]; k++ )
+        			  {
+        				  wallUsed[j][k][1] = true;
+        			  }
+        			  
+        		      RectF wall = new RectF();
+        		      wall.left = (float)j * pixelCellSize;
+        		      wall.top = ( (float)i + 0.5f ) * pixelCellSize;
+        		      wall.bottom = ( (float)k - 0.5f ) * pixelCellSize;
+        		      wall.right = wall.left + pixelCellSize;
+        		      walls.add(wall);
+        		  }
+        	  }
+          }
+      }
+      
+      public void drawWalls( Canvas canvas )
+      {
+          if( canvas != null )
+          {
+        	  Paint paint = new Paint();
+        	  paint.setColor(Color.GREEN);
+        	  for( int i = 0; i < walls.size(); i++ )
+        	  {
+        		  canvas.drawRect( walls.get(i), paint);
+        	  }
           }
       }
 
       // simply prints the map
       public void draw(Canvas canvas) {
+
+          updateGrid(canvas);
+          drawWalls(canvas);
+          RectF r = new RectF();
           Paint paint = new Paint();
           paint.setColor(Color.WHITE);
-          paint.setTextSize(9);
-          updateGrid();
           for (int x = 0; x < gridDimensionX; x++) {
               for (int y = 0; y < gridDimensionY; y++) {
-            	  	canvas.drawText(String.valueOf(grid[x][y]), (float)(pixelX * 0.002f * x), pixelY * 0.002f * y, paint);
+            	  if( grid[x][y] == '+' )
+            	  {
+            		r.left = pixelCellSize * (float)x;
+            		r.top = pixelCellSize * (float)(y );
+            		r.bottom = r.top + pixelCellSize;
+            		r.right = r.left + pixelCellSize;
+                   canvas.drawRect( r, paint );
+            	  }
               }
           }
+          
+
       }
       
       // forms a meaningful representation
       @Override
       public String toString() {
-          updateGrid();
+          updateGrid(null);
           String output = "";
           for (int y = 0; y < gridDimensionY; y++) {
               for (int x = 0; x < gridDimensionX; x++) {
