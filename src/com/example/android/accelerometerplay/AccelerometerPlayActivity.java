@@ -1136,31 +1136,6 @@ public class AccelerometerPlayActivity extends Activity {
         	  }
           }
       }
-
-      // simply prints the map
-      public void draw(Canvas canvas) {
-
-          drawWalls(canvas);
-          /*
-          RectF r = new RectF();
-          Paint paint = new Paint();
-          paint.setColor(Color.WHITE);
-          for (int x = 0; x < gridDimensionX; x++) {
-              for (int y = 0; y < gridDimensionY; y++) {
-            	  if( grid[x][y] == '+' )
-            	  {
-            		r.left = pixelCellSize * (float)x;
-            		r.top = pixelCellSize * (float)(y );
-            		r.bottom = r.top + pixelCellSize;
-            		r.right = r.left + pixelCellSize;
-                   canvas.drawRect( r, paint );
-            	  }
-              }
-          }
-          */
-          
-
-      }
       
       // forms a meaningful representation
       @Override
