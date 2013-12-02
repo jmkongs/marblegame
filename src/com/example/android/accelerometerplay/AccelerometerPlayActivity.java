@@ -23,9 +23,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.PointF;
-import android.graphics.Rect;
-import android.graphics.Paint.Style;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.RectF;
 import android.hardware.Sensor;
@@ -263,7 +260,7 @@ public class AccelerometerPlayActivity extends Activity {
                 float ay = gy * invm;
 
 
-                
+                // Limit acceleration
                 if( ax > 0.3f )
                 {
                 	ax = 0.3f;
@@ -282,8 +279,8 @@ public class AccelerometerPlayActivity extends Activity {
                 	ay = -0.3f;
                 }
                 
-                String msg = String.valueOf(ax) + ", " + String.valueOf(ay);
-                Log.d("MarbleGame", msg);
+                //String msg = String.valueOf(ax) + ", " + String.valueOf(ay);
+                //Log.d("MarbleGame", msg);
                 
 
                 /*
@@ -296,10 +293,28 @@ public class AccelerometerPlayActivity extends Activity {
                  * (1-f) * (x(t) - x(t-Æt)) * (Æt/Æt_prev) + a(t)Ætö2
                  */
                 final float dTdT = dT * dT;
-                final float x = mPosX + mOneMinusFriction * dTC * (mPosX - mPosXset) + mAccelX
-                        * dTdT;
-                final float y = mPosY + mOneMinusFriction * dTC * (mPosY - mPosYset) + mAccelY
-                        * dTdT;
+                float deltaX = mAccelX * dTdT;
+                float deltaY = mAccelY * dTdT;
+                if( deltaX > 16 )
+                {
+                	deltaX = 16f;
+                }
+                else if( deltaX < -16 )
+                {
+                	deltaX = -16f;
+                }
+                
+                if( deltaY > 16 )
+                {
+                	deltaY = 16f;
+                }
+                else if( deltaY < -16 )
+                {
+                	deltaY = -16f;
+                }
+                
+                final float x = mPosX + mOneMinusFriction * dTC * (mPosX - mPosXset) + deltaX;
+                final float y = mPosY + mOneMinusFriction * dTC * (mPosY - mPosYset) + deltaY;
                 mPosXset = mLastPosX = mPosX;
                 mPosYset = mLastPosY = mPosY;
                 mPosX = x;
@@ -600,7 +615,9 @@ public class AccelerometerPlayActivity extends Activity {
                 canvas.drawBitmap(bitmap, x, y, null);
             }
             
-            mMaze.draw(canvas);
+            mMaze.drawWalls(canvas);
+            
+            DebugDraw.Dump(canvas);
             // and make sure to redraw asap
             invalidate();
         }
@@ -609,13 +626,42 @@ public class AccelerometerPlayActivity extends Activity {
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
     }
+    
+    static public class DebugDraw
+    {
+    	private static ArrayList<Integer> rectFColors = new ArrayList<Integer>();
+    	private static ArrayList<RectF> rectFs = new ArrayList<RectF>();
+    	
+    	static public void Dump( Canvas canvas )
+    	{
+    		synchronized( rectFs )
+    		{
+    			Paint paint = new Paint();
+    			for( int i = 0; i < rectFs.size(); i++ )
+    			{
+    				paint.setColor(rectFColors.get(i));
+    				canvas.drawRect( rectFs.get(i), paint );
+    			}
+    			rectFs.clear();
+    			rectFColors.clear();
+    		}
+    	}
+    	
+    	public static void AddRectF( RectF rect, int color )
+    	{
+    		synchronized( rectFs )
+    		{
+    			rectFColors.add( color );
+    			rectFs.add(rect);
+    		}
+    	}
+    }
 
     class MyMaze {
       private float pixelCellSize;
       private int dimensionX, dimensionY; // dimension of maze
       private int gridDimensionX, gridDimensionY; // dimension of output grid
       private char[][] grid; // output grid
-      private char[][] gridDraw; // output grid draw
       private Cell[][] cells; // 2d array of Cells
       private Random random = new Random(); // The random object
       private ArrayList<RectF> walls = new ArrayList<RectF>();
@@ -624,19 +670,19 @@ public class AccelerometerPlayActivity extends Activity {
       // initialize with x and y the same
       public MyMaze(int aDimension, DisplayMetrics metrics ) {
           // Initialize
-          this(aDimension, aDimension);
-          pixelCellSize = (float)metrics.widthPixels / (float)( aDimension * 4 + 1);
+          this(aDimension, aDimension, metrics);
       }
       // constructor
-      public MyMaze(int xDimension, int yDimension) {
+      public MyMaze(int xDimension, int yDimension, DisplayMetrics metrics) {
+          pixelCellSize = (float)metrics.widthPixels / (float)( xDimension * 4 + 1);
           dimensionX = xDimension;
           dimensionY = yDimension;
-          gridDraw = new char[xDimension][yDimension];
           gridDimensionX = xDimension * 4 + 1;
           gridDimensionY = yDimension * 4 + 1;
           grid = new char[gridDimensionX][gridDimensionY];
           init();
           generateMaze();
+          updateGrid();
       }
 
       private void init() {
@@ -723,55 +769,73 @@ public class AccelerometerPlayActivity extends Activity {
           generateMaze(getCell(x, y)); // generate from Cell
       }
       
+      private float calcLineDistance( float x1, float y1, float x2, float y2 )
+      {
+    	  float f1, f2;
+    	  f1 = y2-y1;
+    	  f2 = x2-x1;
+    	  return (float)Math.sqrt( (f1 * f1) + (f2 * f2) );
+    	  
+      }
+      
       private void checkWalls( Particle ball, float r, Canvas canvas )
       {
-    	  float x, y, lastX, lastY;
+    	  float x, y, d, lastX, lastY, newX, newY;
     	  x = ball.getPosXPixel();
     	  y = ball.getPosYPixel();
     	  lastX = ball.getLastPosXPixel();
     	  lastY = ball.getLastPosYPixel();
-    	      	  
-    	  RectF obj = new RectF(x, y, x + 2 * r, y + 2 * r );
+    	  d = 2 * r;
+    	  
+    	  RectF obj = new RectF(x, y, x + d, y + d );
+    	  
+    	  RectF objLast = new RectF(lastX, lastY, lastX + d, lastY + d );
     	  for( int i = 0; i < walls.size(); i++ )
     	  {
     		  RectF wall = walls.get(i); 		  
     		  
     		  if( obj.intersect(wall) )
     		  {
-    			  Paint paint = new Paint();
-    			  paint.setColor(Color.MAGENTA);
-    			  canvas.drawRect( obj, paint );
-    			  
-    				 if( wall.height() > wall.width()  )
-    				  {
-    					 // left or right
-    					  if( obj.centerX() > wall.centerX() )
-    					  {
-    						  x += obj.width();
-    					  }
-    					  else
-    					  {
-    						  x -= obj.width();
-    					  }
-    				  }
-    				  else
-    				  {
-    					  if( obj.centerY() > wall.centerY() )
-    					  {
-    						  y += obj.height();
-    					  }
-    					  else
-    					  {
-    						  y -= obj.height();
-    					  }
-    				  }
-    				 
-    				 ball.setPosPixel(x, y);
-    				 //ball.clearAccel();
-    				  
+    			  // left or right
+				  if( obj.centerX() < objLast.centerX() )
+				  {
+					  newX = x + obj.width();
+				  }
+				  else
+				  {
+					  newX = x - obj.width();
+				  }
+				  
+				  // top or bottom
+				  if( obj.centerY() < objLast.centerY() )
+    			  {
+					  newY = y + obj.height();
     			  }
-    			  
+				  else
+				  {
+    				newY = y - obj.height();
+				  }
+				  
+				  if( obj.top == wall.top || obj.bottom == wall.bottom )
+				  {
+					  y = newY;
+				  }
+				  else
+				  {
+					  x = newX;
+				  }
+				  ball.setPosPixel(x, y);
+				 
+				  //DebugDraw.AddRectF(new RectF(x, y, x+d, y+d), Color.GREEN);
+				  //DebugDraw.AddRectF(obj, Color.MAGENTA);
+				  
+				  RectF obj2 = new RectF( x, y, x+d, y+d);
+				  if( obj2.intersect(wall) )
+				  {
+					  DebugDraw.AddRectF(obj2, Color.BLUE );
+				  }
     		  }
+    	  }
       }
       
       private void generateMaze(Cell startAt) {
@@ -893,36 +957,9 @@ public class AccelerometerPlayActivity extends Activity {
           return travelled + Math.abs(current.x - end.x) + 
                   Math.abs(current.y - current.x);
       }
-
-      public void updateGridDraw()
-      {
-    	  char backChar = ' ', wallChar = 'X', cellChar = ' ', pathChar = '*';
-          
-    	  // fill background
-          for (int x = 0; x < dimensionX; x ++)
-          {
-              for (int y = 0; y < dimensionY; y ++)
-              {
-                  if( cells[x][y].wall )
-                  {
-                	  gridDraw[x][y] = wallChar;
-                  }
-                  else if ( cells[x][y].inPath )
-                  {
-                	  gridDraw[x][y] = pathChar;
-                  }
-                  else
-                  {
-                	  gridDraw[x][y] = backChar;
-                  }
-              }
-          }
-          
-          
-      }
       
       // draw the maze
-      public void updateGrid(Canvas canvas) {
+      public void updateGrid() {
           char backChar = ' ', wallChar = '+', cellChar = ' ', pathChar = '*';
           // fill background
           for (int x = 0; x < gridDimensionX; x ++) {
@@ -1071,10 +1108,10 @@ public class AccelerometerPlayActivity extends Activity {
         			  }
         			  
         		      RectF wall = new RectF();
-        		      wall.left = ( (float)j + 0.5f ) * pixelCellSize;
+        		      wall.left = ( (float)j /*+ 0.5f*/ ) * pixelCellSize;
         		      wall.top = (float)i * pixelCellSize;
         		      wall.bottom = wall.top + pixelCellSize;
-        		      wall.right = ( (float)k - 0.5f ) * pixelCellSize;
+        		      wall.right = ( (float)k/* - 0.5f */) * pixelCellSize;
         		      walls.add(wall);
         		  } 
         		  else if ( i < gridDimensionY - 1 && !wallUsed[j][i][1] && grid[j][i] == '+' && grid[j][i+1] == '+' && !wallUsed[j][i+1][1] )
@@ -1090,8 +1127,8 @@ public class AccelerometerPlayActivity extends Activity {
         			  
         		      RectF wall = new RectF();
         		      wall.left = (float)j * pixelCellSize;
-        		      wall.top = ( (float)i + 0.5f ) * pixelCellSize;
-        		      wall.bottom = ( (float)k - 0.5f ) * pixelCellSize;
+        		      wall.top = ( (float)i /*+ 0.5f*/ ) * pixelCellSize;
+        		      wall.bottom = ( (float)k/* - 0.5f*/ ) * pixelCellSize;
         		      wall.right = wall.left + pixelCellSize;
         		      walls.add(wall);
         		  }
@@ -1104,7 +1141,7 @@ public class AccelerometerPlayActivity extends Activity {
           if( canvas != null )
           {
         	  Paint paint = new Paint();
-        	  paint.setColor(Color.GREEN);
+        	  paint.setColor( Color.WHITE );
         	  for( int i = 0; i < walls.size(); i++ )
         	  {
         		  canvas.drawRect( walls.get(i), paint);
@@ -1115,8 +1152,8 @@ public class AccelerometerPlayActivity extends Activity {
       // simply prints the map
       public void draw(Canvas canvas) {
 
-          updateGrid(canvas);
           drawWalls(canvas);
+          /*
           RectF r = new RectF();
           Paint paint = new Paint();
           paint.setColor(Color.WHITE);
@@ -1132,6 +1169,7 @@ public class AccelerometerPlayActivity extends Activity {
             	  }
               }
           }
+          */
           
 
       }
@@ -1139,7 +1177,7 @@ public class AccelerometerPlayActivity extends Activity {
       // forms a meaningful representation
       @Override
       public String toString() {
-          updateGrid(null);
+          updateGrid();
           String output = "";
           for (int y = 0; y < gridDimensionY; y++) {
               for (int x = 0; x < gridDimensionX; x++) {
