@@ -221,7 +221,6 @@ public class AccelerometerPlayActivity extends Activity {
             {
             	mPosXset = mPosX = (x - mXOrigin ) / mMetersPerPixelX;
             	mPosYset = mPosY = ( mYOrigin - y ) / mMetersPerPixelY;
-            	
             }
             
             public float getPosXPixel ()
@@ -277,11 +276,7 @@ public class AccelerometerPlayActivity extends Activity {
                 else if( ay < -0.3f )
                 {
                 	ay = -0.3f;
-                }
-                
-                //String msg = String.valueOf(ax) + ", " + String.valueOf(ay);
-                //Log.d("MarbleGame", msg);
-                
+                }                
 
                 /*
                  * Time-corrected Verlet integration The position Verlet
@@ -523,7 +518,7 @@ public class AccelerometerPlayActivity extends Activity {
             final int woodDstWidth = (int) (metrics.widthPixels);
             final int woodDstHeight = (int) (metrics.heightPixels);
             mWood = Bitmap.createScaledBitmap(mWood, woodDstWidth, woodDstHeight, true);
-            mMaze = new MyMaze( 10, metrics );
+            mMaze = new MyMaze( 10, 15, metrics );
             //mMaze.solve();
         }
 
@@ -657,8 +652,9 @@ public class AccelerometerPlayActivity extends Activity {
     	}
     }
 
-    class MyMaze {
-      private float pixelCellSize;
+    class MyMaze
+    {
+      private float pixelCellSizeX, pixelCellSizeY;
       private int dimensionX, dimensionY; // dimension of maze
       private int gridDimensionX, gridDimensionY; // dimension of output grid
       private char[][] grid; // output grid
@@ -674,7 +670,8 @@ public class AccelerometerPlayActivity extends Activity {
       }
       // constructor
       public MyMaze(int xDimension, int yDimension, DisplayMetrics metrics) {
-          pixelCellSize = (float)metrics.widthPixels / (float)( xDimension * 4 + 1);
+    	  pixelCellSizeX = (float)metrics.widthPixels  / (float)( xDimension * 4 + 1);
+    	  pixelCellSizeY = (float)metrics.heightPixels / (float)( yDimension * 4 + 1);
           dimensionX = xDimension;
           dimensionY = yDimension;
           gridDimensionX = xDimension * 4 + 1;
@@ -767,15 +764,6 @@ public class AccelerometerPlayActivity extends Activity {
       // generate the maze from coordinates x, y
       private void generateMaze(int x, int y) {
           generateMaze(getCell(x, y)); // generate from Cell
-      }
-      
-      private float calcLineDistance( float x1, float y1, float x2, float y2 )
-      {
-    	  float f1, f2;
-    	  f1 = y2-y1;
-    	  f2 = x2-x1;
-    	  return (float)Math.sqrt( (f1 * f1) + (f2 * f2) );
-    	  
       }
       
       private void checkWalls( Particle ball, float r, Canvas canvas )
@@ -1108,10 +1096,10 @@ public class AccelerometerPlayActivity extends Activity {
         			  }
         			  
         		      RectF wall = new RectF();
-        		      wall.left = ( (float)j /*+ 0.5f*/ ) * pixelCellSize;
-        		      wall.top = (float)i * pixelCellSize;
-        		      wall.bottom = wall.top + pixelCellSize;
-        		      wall.right = ( (float)k/* - 0.5f */) * pixelCellSize;
+        		      wall.left = ( (float)j /*+ 0.5f*/ ) * pixelCellSizeX;
+        		      wall.top = (float)i * pixelCellSizeY;
+        		      wall.bottom = wall.top + pixelCellSizeY;
+        		      wall.right = ( (float)k/* - 0.5f */) * pixelCellSizeX;
         		      walls.add(wall);
         		  } 
         		  else if ( i < gridDimensionY - 1 && !wallUsed[j][i][1] && grid[j][i] == '+' && grid[j][i+1] == '+' && !wallUsed[j][i+1][1] )
@@ -1126,10 +1114,10 @@ public class AccelerometerPlayActivity extends Activity {
         			  }
         			  
         		      RectF wall = new RectF();
-        		      wall.left = (float)j * pixelCellSize;
-        		      wall.top = ( (float)i /*+ 0.5f*/ ) * pixelCellSize;
-        		      wall.bottom = ( (float)k/* - 0.5f*/ ) * pixelCellSize;
-        		      wall.right = wall.left + pixelCellSize;
+        		      wall.left = (float)j * pixelCellSizeX;
+        		      wall.top = ( (float)i /*+ 0.5f*/ ) * pixelCellSizeY;
+        		      wall.bottom = ( (float)k/* - 0.5f*/ ) * pixelCellSizeY;
+        		      wall.right = wall.left + pixelCellSizeX;
         		      walls.add(wall);
         		  }
         	  }
