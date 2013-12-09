@@ -775,11 +775,11 @@ public class AccelerometerPlayActivity extends Activity {
     	  lastY = ball.getLastPosYPixel();
     	  d = 2 * r;
     	  
-    	  RectF obj = new RectF(x, y, x + d, y + d );
     	  
     	  RectF objLast = new RectF(lastX, lastY, lastX + d, lastY + d );
     	  for( int i = 0; i < walls.size(); i++ )
     	  {
+        	  RectF obj = new RectF(x, y, x + d, y + d );
     		  RectF wall = walls.get(i); 		  
     		  
     		  if( obj.intersect(wall) )
