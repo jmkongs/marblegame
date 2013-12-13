@@ -17,7 +17,14 @@
 package com.example.android.accelerometerplay;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -29,7 +36,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.util.DisplayMetrics;
@@ -41,6 +50,8 @@ import android.view.WindowManager;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MenuInflater;
+import android.widget.Toast;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -68,10 +79,70 @@ public class AccelerometerPlayActivity extends Activity {
     private Display mDisplay;
     private WakeLock mWakeLock;
 
+    private TimingService mBoundService;
+
+    @Override
+    public void onDestroy()
+    {
+    	doUnbindService();
+    	super.onDestroy();
+    }
+    
+    private ServiceConnection mConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            // This is called when the connection with the service has been
+            // established, giving us the service object we can use to
+            // interact with the service.  Because we have bound to a explicit
+            // service that we know is running in our own process, we can
+            // cast its IBinder to a concrete class and directly access it.
+            mBoundService = ((TimingService.LocalBinder)service).getService();
+
+            // Tell the user about this for our demo.
+            Toast.makeText(AccelerometerPlayActivity.this, "We connect to service, ya!?",
+                    Toast.LENGTH_SHORT).show();
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            // This is called when the connection with the service has been
+            // unexpectedly disconnected -- that is, its process crashed.
+            // Because it is running in our same process, we should never
+            // see this happen.
+            mBoundService = null;
+            Toast.makeText(AccelerometerPlayActivity.this, "We connect to service, no.",
+                    Toast.LENGTH_SHORT).show();
+        }
+    };
+    boolean mIsBound;
+    
+    void doBindService() {
+        // Establish a connection with the service.  We use an explicit
+        // class name because there is no reason to be able to let other
+        // applications replace our component.
+    	try
+    	{
+        bindService(new Intent(this, 
+                TimingService.class), mConnection, Context.BIND_AUTO_CREATE);
+    	}
+    	catch( SecurityException e)
+    	{
+    		Log.e(ACTIVITY_SERVICE, e.toString());
+    	}
+        mIsBound = true;
+    }
+
+    void doUnbindService() {
+        if (mIsBound) {
+            // Detach our existing connection.
+            unbindService(mConnection);
+            mIsBound = false;
+        }
+    }
+    
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
 
         // Get an instance of the SensorManager
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -90,6 +161,8 @@ public class AccelerometerPlayActivity extends Activity {
         // instantiate our simulation view and set it as the activity's content
         mSimulationView = new SimulationView(this);
         setContentView(mSimulationView);
+        
+        doBindService();
     }
 
     @Override
@@ -145,6 +218,7 @@ public class AccelerometerPlayActivity extends Activity {
         }
     
     }
+    
     class SimulationView extends View implements SensorEventListener {
         // diameter of the balls in meters
         private static final float sBallDiameter = 0.002f;
