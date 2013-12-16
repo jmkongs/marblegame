@@ -165,11 +165,19 @@ public class Maze
 			  {
 				  // ball needs to move down
 				  newY = wall.bottom + r;
+				  if( Math.abs(newY - y) > 20 )
+				  {
+					  newY = wall.top - r;
+				  }
 			  }
 			  else
 			  {
 				// ball needs to move up
 				  newY = wall.top - r;
+				  if( Math.abs(newY - y) > 20 )
+				  {
+					  newY = wall.bottom + r;
+				  }
 			  }
 			  
 			  // TODO: Improve logic of deciding to move up / down vs left/right			  
