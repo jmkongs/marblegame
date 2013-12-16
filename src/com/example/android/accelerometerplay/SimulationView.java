@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.RectF;
 import android.hardware.Sensor;
@@ -16,6 +17,7 @@ import android.view.Display;
 import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Toast;
 
 public class SimulationView extends View implements SensorEventListener
 {
@@ -33,13 +35,16 @@ public class SimulationView extends View implements SensorEventListener
     private float mSensorY;
     private long mSensorTimeStamp;
     private long mCpuTimeStamp;
-    private float mHorizontalBound;
-    private float mVerticalBound;
     private Maze mMaze;
     private ParticleSystem mParticleSystem;
     private WindowManager windowManager;
     private Display mDisplay;
     DisplayMetrics mMetrics;
+    private Particle mBall;
+    
+    private boolean timeStarted = false;
+    
+    private RectF startZone, endZone;
     
     public void startSimulation()
     {
@@ -56,8 +61,6 @@ public class SimulationView extends View implements SensorEventListener
     {
         mSensorManager.unregisterListener(this);
     }
-
-    private static final float sBallDiameter = 0.002f;
     
     public SimulationView(Context context)
     {
@@ -79,8 +82,8 @@ public class SimulationView extends View implements SensorEventListener
         mMetersToPixelsY = mYDpi / 0.0254f;
         mParticleSystem = new ParticleSystem(0, 0);
         final int diameter = 16;
-        Particle p = new Particle(mMetersToPixelsX, mMetersToPixelsY, 0, 0, diameter );
-        mParticleSystem.addParticle(p);
+        mBall = new Particle(mMetersToPixelsX, mMetersToPixelsY, 0, 0, diameter );
+        mParticleSystem.addParticle(mBall);
         // rescale the ball so it's about 0.5 cm on screen
         Bitmap ball = BitmapFactory.decodeResource(getResources(), R.drawable.ball);
         mBitmap = Bitmap.createScaledBitmap(ball, diameter, diameter, true);
@@ -93,17 +96,15 @@ public class SimulationView extends View implements SensorEventListener
         final int woodDstHeight = (int) (mMetrics.heightPixels);
         mWood = Bitmap.createScaledBitmap(mWood, woodDstWidth, woodDstHeight, true);
         mMaze = new Maze( 10, 15, mMetrics );
-        mMaze.setStart(p);
+        mMaze.setStart(mBall);
+        startZone = mMaze.getStartZone();
+        endZone = mMaze.getEndZone();
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh)
     {
-        // compute the origin of the screen relative to the origin of
-        // the bitmap
-        float x, y;
-    	mHorizontalBound = ( (w / mMetersToPixelsX ) );
-        mVerticalBound = ( (h / mMetersToPixelsY ) );
+        final float x, y;
         x = mMaze.getCellSizeX();
         y = mMaze.getCellSizeY();
         mParticleSystem.setBounds(new RectF( 0 + x, 0 + y, w - x, h - y ) );
@@ -152,6 +153,8 @@ public class SimulationView extends View implements SensorEventListener
         mCpuTimeStamp = System.nanoTime();
     }
 
+    private Paint drawPaint = new Paint();
+    
     @Override
     protected void onDraw(Canvas canvas)
     {
@@ -166,20 +169,53 @@ public class SimulationView extends View implements SensorEventListener
         final float sy = mSensorY;
 
         mParticleSystem.update(sx, sy, now);
+        
         mParticleSystem.checkForWallCollision(mMaze, canvas);
+        
+        RectF obj = new RectF();
+        float x = mBall.getPosX();
+        float y = mBall.getPosY();
+        float r = mBall.getDiameter() /2.0f;
+        obj.top = y - r;
+        obj.right = x + r;
+        obj.left = x - r;
+        obj.bottom = y + r;
+        
+        if( !timeStarted )
+        {
+
+	        if( !obj.intersect(startZone) )
+	        {
+	        	// time start
+	        	timeStarted = true;
+	        	Toast.makeText(getContext(), "TIM EGO", Toast.LENGTH_LONG).show();
+	        }
+        }
+        else
+        {
+        	if( obj.intersect(endZone))
+        	{
+        		// stop time, game over
+        		Toast.makeText(getContext(), "YOU WIN 1000 internets", Toast.LENGTH_LONG).show();
+        	}
+        }
+        
+        drawPaint.setColor(Color.RED);
+        canvas.drawRect(startZone, drawPaint);
+        drawPaint.setColor(Color.GREEN);
+        canvas.drawRect(endZone, drawPaint);
+        
         final int count = mParticleSystem.getParticleCount();
         
         for (int i = 0; i < count; i++)
         {
-            final Particle p = mParticleSystem.getParticle(i);
-            final float r = p.getDiameter() / 2.0f;
-            canvas.drawBitmap(mBitmap, p.getPosX() - r, p.getPosY() - r, null);
+            canvas.drawBitmap(mBitmap, x - r, y - r, null);
         }
         
         mMaze.drawWalls(canvas);
         
         // Dump any debug draw information
-        DebugDraw.Dump(canvas);
+        // DebugDraw.Dump(canvas);
         
         // and make sure to redraw asap
         invalidate();

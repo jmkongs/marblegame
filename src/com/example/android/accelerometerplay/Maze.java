@@ -33,6 +33,7 @@ public class Maze
 	  pixelCellSizeY = (float)metrics.heightPixels / (float)( yDimension * 4 + 1);
       dimensionX = xDimension;
       dimensionY = yDimension;
+      
       gridDimensionX = xDimension * 4 + 1;
       gridDimensionY = yDimension * 4 + 1;
       grid = new char[gridDimensionX][gridDimensionY];
@@ -117,11 +118,38 @@ public class Maze
     }
   }
   // generate from upper left (In computing the y increases down often)
-  private void generateMaze() {
+  private void generateMaze()
+  {
       generateMaze(0, 0);
   }
+  
+  private int cellStartX, cellStartY;
+  
+  public RectF getStartZone()
+  {
+	  RectF zone = new RectF();
+	  zone.left = ( cellStartX * 4 + 1) * pixelCellSizeX;
+	  zone.top  = ( cellStartY * 4 + 1) * pixelCellSizeY;
+	  zone.bottom = zone.top + pixelCellSizeY * 3.0f;
+	  zone.right  = zone.left + pixelCellSizeX * 3.0f;
+	  return zone;
+  }
+  
+  public RectF getEndZone()
+  {
+	  RectF zone = new RectF();
+	  zone.left = ( ( dimensionX - 1 ) * 4 + 1 ) * pixelCellSizeX;
+	  zone.top  = ( ( dimensionY - 1 ) * 4 + 1 ) * pixelCellSizeY;
+	  zone.bottom = zone.top + pixelCellSizeY * 3.0f;
+	  zone.right  = zone.left + pixelCellSizeX * 3.0f;
+	  return zone;
+  }
+  
   // generate the maze from coordinates x, y
-  private void generateMaze(int x, int y) {
+  private void generateMaze(int x, int y)
+  {
+	  cellStartX = x;
+	  cellStartY = y;
       generateMaze(getCell(x, y)); // generate from Cell
   }
   
@@ -191,10 +219,6 @@ public class Maze
 			  }
 			  
 			  ball.setPos(x, y);
-			 
-			  //DebugDraw.AddRectF(wall, Color.YELLOW);
-			  //DebugDraw.AddRectF(new RectF(x - r, y + r, x + r, y + r), Color.GREEN);
-			  //DebugDraw.AddRectF(obj, Color.MAGENTA);
 			  
 			  RectF obj2 = new RectF( x - r, y - r, x + r, y + r);
 			  if( obj2.intersect(wall) )
