@@ -9,6 +9,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -173,13 +176,18 @@ import android.widget.Toast;
 	        	if( System.currentTimeMillis() - lastMove > 10000 && !warned )
 	        	{
 	        		warned = true;
-	    	    	AccelerometerPlayActivity.apa.runOnUiThread( new Runnable() {	    	    		@Override
+	    	    	AccelerometerPlayActivity.apa.runOnUiThread( new Runnable() {	    	    		
+	    	    		@Override
 	    	    		public void run() {
 	    	    			Toast.makeText(getBaseContext(), "Idle detected, will shutdown Marble Maze", Toast.LENGTH_SHORT).show();
 	    	    		} });
 	        	}
 	        	else if (System.currentTimeMillis() - lastMove > 20000 )
 	        	{
+	        		Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+	        		Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), notification);
+	        		r.play();
+	        		mSensorManager.unregisterListener(this);
 	        		AccelerometerPlayActivity.apa.finish();
 	        	}
 	        }
