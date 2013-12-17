@@ -29,8 +29,8 @@ public class Maze
   }
   // constructor
   public Maze(int xDimension, int yDimension, DisplayMetrics metrics) {
-	  pixelCellSizeX = (float)metrics.widthPixels  / (float)( xDimension * 4 + 1);
-	  pixelCellSizeY = (float)metrics.heightPixels / (float)( yDimension * 4 + 1);
+	  pixelCellSizeX = ( (float)metrics.widthPixels )  / (float)( xDimension * 4 + 1);
+	  pixelCellSizeY = ( (float)metrics.heightPixels - 100 ) / (float)( yDimension * 4 + 1);
       dimensionX = xDimension;
       dimensionY = yDimension;
       
