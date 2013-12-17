@@ -60,14 +60,15 @@ import java.util.Random;
 
 public class AccelerometerPlayActivity extends Activity {
 
+	public static AccelerometerPlayActivity apa;
+	
     private SimulationView mSimulationView;
 
     private PowerManager mPowerManager;
     private WindowManager mWindowManager;
     private Display mDisplay;
     private WakeLock mWakeLock;
-
-    private TimingService mBoundService;
+    public TimingService boundService;
 
     @Override
     public void onDestroy()
@@ -76,33 +77,31 @@ public class AccelerometerPlayActivity extends Activity {
     	super.onDestroy();
     }
     
-    private ServiceConnection mConnection = new ServiceConnection() {
-        public void onServiceConnected(ComponentName className, IBinder service) {
+    private ServiceConnection mConnection = new ServiceConnection()
+    {
+        public void onServiceConnected(ComponentName className, IBinder service)
+        {
             // This is called when the connection with the service has been
             // established, giving us the service object we can use to
             // interact with the service.  Because we have bound to a explicit
             // service that we know is running in our own process, we can
             // cast its IBinder to a concrete class and directly access it.
-            mBoundService = ((TimingService.LocalBinder)service).getService();
-
-            // Tell the user about this for our demo.
-            Toast.makeText(AccelerometerPlayActivity.this, "We connect to service, ya!?",
-                    Toast.LENGTH_SHORT).show();
+            boundService = ((TimingService.LocalBinder)service).getService();
         }
 
-        public void onServiceDisconnected(ComponentName className) {
+        public void onServiceDisconnected(ComponentName className)
+        {
             // This is called when the connection with the service has been
             // unexpectedly disconnected -- that is, its process crashed.
             // Because it is running in our same process, we should never
             // see this happen.
-            mBoundService = null;
-            Toast.makeText(AccelerometerPlayActivity.this, "We connect to service, no.",
-                    Toast.LENGTH_SHORT).show();
+            boundService = null;
         }
     };
     boolean mIsBound;
     
-    void doBindService() {
+    void doBindService()
+    {
         // Establish a connection with the service.  We use an explicit
         // class name because there is no reason to be able to let other
         // applications replace our component.
@@ -118,7 +117,8 @@ public class AccelerometerPlayActivity extends Activity {
         mIsBound = true;
     }
 
-    void doUnbindService() {
+    void doUnbindService()
+    {
         if (mIsBound) {
             // Detach our existing connection.
             unbindService(mConnection);
@@ -128,11 +128,10 @@ public class AccelerometerPlayActivity extends Activity {
     
     /** Called when the activity is first created. */
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState)
+    {
         super.onCreate(savedInstanceState);
-        
-
-
+apa = this;
         // Get an instance of the PowerManager
         mPowerManager = (PowerManager) getSystemService(POWER_SERVICE);
 

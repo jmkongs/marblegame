@@ -24,6 +24,7 @@ public class SimulationView extends View implements SensorEventListener
 	private Context mContext;
     private Sensor mAccelerometer;
 
+    private boolean gameWon = false;
     private SensorManager mSensorManager;
     private float mXDpi;
     private float mYDpi;
@@ -158,6 +159,12 @@ public class SimulationView extends View implements SensorEventListener
     @Override
     protected void onDraw(Canvas canvas)
     {
+    	float x,y,r;
+    	
+        x = mBall.getPosX();
+        y = mBall.getPosY();
+        r = mBall.getDiameter() /2.0f;
+    	
     	 // draw the background    
         canvas.drawBitmap(mWood, 0, 0, null);
 
@@ -168,36 +175,47 @@ public class SimulationView extends View implements SensorEventListener
         final float sx = mSensorX;
         final float sy = mSensorY;
 
-        mParticleSystem.update(sx, sy, now);
-        
-        mParticleSystem.checkForWallCollision(mMaze, canvas);
-        
-        RectF obj = new RectF();
-        float x = mBall.getPosX();
-        float y = mBall.getPosY();
-        float r = mBall.getDiameter() /2.0f;
-        obj.top = y - r;
-        obj.right = x + r;
-        obj.left = x - r;
-        obj.bottom = y + r;
-        
-        if( !timeStarted )
+        if( !gameWon )
         {
+        	
+	        mParticleSystem.update(sx, sy, now);
+	        
+	        mParticleSystem.checkForWallCollision(mMaze, canvas);
+	        
+	        x = mBall.getPosX();
+	        y = mBall.getPosY();
+	        r = mBall.getDiameter() /2.0f;
+	        
+	        RectF obj = new RectF();
 
-	        if( !obj.intersect(startZone) )
+	        obj.top = y - r;
+	        obj.right = x + r;
+	        obj.left = x - r;
+	        obj.bottom = y + r;
+	        
+	        if( !timeStarted )
 	        {
-	        	// time start
-	        	timeStarted = true;
-	        	Toast.makeText(getContext(), "TIM EGO", Toast.LENGTH_LONG).show();
+	
+		        if( !obj.intersect(startZone) )
+		        {
+		        	// time start
+		        	AccelerometerPlayActivity.apa.boundService.startTimer();
+		        	timeStarted = true;
+		        	Toast.makeText(getContext(), "Timer started. GO!", Toast.LENGTH_SHORT).show();
+		        }
 	        }
-        }
-        else
-        {
-        	if( obj.intersect(endZone))
-        	{
-        		// stop time, game over
-        		Toast.makeText(getContext(), "YOU WIN 1000 internets", Toast.LENGTH_LONG).show();
-        	}
+	        else
+	        {
+	        	if( obj.intersect(endZone) )
+	        	{
+	        		// stop time, game over
+	        		long time = AccelerometerPlayActivity.apa.boundService.stopTimer();
+	        		Toast.makeText(getContext(), "You took " + String.valueOf(time) + " ms!", Toast.LENGTH_SHORT).show();
+	        		stopSimulation();
+	        		gameWon = true;
+	        		AccelerometerPlayActivity.apa.finish();
+	        	}
+	        }
         }
         
         drawPaint.setColor(Color.RED);
